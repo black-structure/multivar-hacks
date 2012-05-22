@@ -7,39 +7,7 @@
 using namespace std;
 using namespace GiNaC;
 
-// modular reduction
-struct fmodnum : public map_function {
-public:
-    numeric P;
-    fmodnum(const numeric& P) : P(P) { };
-    ex operator()(const ex &e) {
-        if(is_a<mul>(e)) {
-            ex m=1;
-            for(size_t i=0; i!=e.nops(); i++) {
-                const ex& ei = e.op(i);
-                if(is_a<numeric>(ei))
-                    m *= mod(ex_to<numeric>(ei), P);
-                else
-                    m *= ei.map(*this);
-            }
-            return m;
-        }
-        if(is_a<add>(e)) {
-            ex m=0;
-            for(size_t i=0; i!=e.nops(); i++) {
-                const ex& ei = e.op(i);
-                if(is_a<numeric>(ei))
-                    m += mod(ex_to<numeric>(ei), P);
-                else
-                    m += ei.map(*this);
-            }
-            return m;
-        }
-        else {
-            return e.map(*this);
-        }
-    }
-};
+#include "algebra.h"
 
 int main()
 {
@@ -60,41 +28,33 @@ int main()
         
         aa += va[i]*pow(X,i);
     }
+
+    // fp is multivariate polynomial
+    // fp = X^(N-1)*A_(N_1) + ... + A_0
+
+    ex fp = rem(f.subs(A==aa).expand(), irr, X);
     
-    
-    
-    
-    
-    
-    ex fp = f
-            .subs(A==aa)
-            .expand();
-    
-    // poly reduction
-    fp = rem(fp, irr, X);
-    
-    // doing frobenius
+    // doing reduction
     for(int i=0; i<N; i++) {
-        ex frob = pow(va[i],P);
-        while(fp.has(frob, has_options::algebraic)) {
-            fp = fp.subs(frob==va[i], subs_options::algebraic);
-        }
+        fp = frobenius(fp, va[i], P);
     }
+    fp = modular(fp, P);
+
     
-    // doing modular
-    {
-        fmodnum map1(P);
-        fp = fp.map(map1).collect(X);
-    }
+
+    vector<ex> vb; vb.reserve(N);
     
+    cout << fp << endl;
+
     {
-        ex fpt = fp/*.expand()*/;
+        ex fpt = fp.collect(X);
         for(int i=0; i<N; i++) {
-            cout << "b_" << i << " = " << fpt.coeff(X,i) << endl;
+            vb.push_back(fpt.coeff(X,i));
+            cout << "b_" << i << " = " << vb[i] << endl;
         }
+        cout << fpt << endl;
     }
     
-    cout << fp;
     
     return 0;
 }
